@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baidu Map Accident Visualization</title>
+    <script src="http://api.map.baidu.com/api?v=3.0&ak=6HkEN6VRJ8YKvErW5DYSJe7tItF71NI0"></script>
+    <style>
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+        .info-window {
+            width: 250px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        var map = new BMap.Map("map");
+        var point = new BMap.Point(116.404, 39.915); // Default center point (Beijing)
+        map.centerAndZoom(point, 5); // Zoom level: 5
+        map.addControl(new BMap.NavigationControl()); // Zoom control
+
+        // Define Yellow and Bohai Sea boundary coordinates
+        var yellowBohaiSea = [
+            new BMap.Point(115.0, 36.0), // Northwest corner
+            new BMap.Point(127.0, 36.0), // Northeast corner
+            new BMap.Point(127.0, 41.0), // Southeast corner
+            new BMap.Point(115.0, 41.0)  // Southwest corner
+        ];
+
+        // Create a polygon to represent Yellow and Bohai Sea
+        var yellowBohaiSeaPolygon = new BMap.Polygon(yellowBohaiSea, {
+            strokeColor: "",    // Stroke color
+            strokeWeight: 2,        // Stroke width
+            strokeOpacity: 0.5,     // Stroke opacity
+            fillColor: "",      // Fill color
+            fillOpacity: 0.1        // Fill opacity
+        });
+        map.addOverlay(yellowBohaiSeaPolygon);
+
+        // Sample accident point data (Replace with your actual data)
+        var accidentPoints = [
+            { lng: 119.5, lat: 39.3, reason: "Ship collision" },
+            { lng: 118.6, lat: 38.6, reason: "Oil spill" },
+            { lng: 119.7, lat: 38.3, reason: "Navigation error" },
+            { lng: 119.7, lat: 37.3, reason: "Navigation error" },
+            // Add more accident points as needed
+        ];
+
+        // Create markers for accident points
+        accidentPoints.forEach(function(point) {
+            var marker = new BMap.Marker(new BMap.Point(point.lng, point.lat));
+            map.addOverlay(marker);
+            
+            // Add info window for each marker
+            var infoWindow = new BMap.InfoWindow("Reason: " + point.reason, {
+                width : 250,     // Info window width
+                title : "Accident Point" // Info window title
+            });
+            marker.addEventListener("click", function() {
+                this.openInfoWindow(infoWindow);
+            });
+        });
+
+        // Example of generating risk areas (replace with your logic)
+        var riskAreas = generateRiskAreas(accidentPoints);
+
+        // Function to generate risk areas based on accident points
+        // Function to generate risk areas based on accident points
+function generateRiskAreas(accidentPoints) {
+    // Divide the map into 5x5 grid blocks
+    var gridSize = 5;
+    var gridWidth = (yellowBohaiSea[1].lng - yellowBohaiSea[0].lng) / gridSize;
+    var gridHeight = (yellowBohaiSea[2].lat - yellowBohaiSea[1].lat) / gridSize;
+
+    var riskAreas = [];
+
+    for (var i = 0; i < gridSize; i++) {
+        for (var j = 0; j < gridSize; j++) {
+            // Calculate the bounds of each grid block
+            var bounds = new BMap.Bounds(
+                new BMap.Point(yellowBohaiSea[0].lng + i * gridWidth, yellowBohaiSea[0].lat + j * gridHeight),
+                new BMap.Point(yellowBohaiSea[0].lng + (i + 1) * gridWidth, yellowBohaiSea[0].lat + (j + 1) * gridHeight)
+            );
+
+            // Count the number of accident points within the grid block
+            var accidentPointsInGrid = accidentPoints.filter(function(point) {
+                return point.lng >= bounds.getSouthWest().lng &&
+                       point.lng <= bounds.getNorthEast().lng &&
+                       point.lat >= bounds.getSouthWest().lat &&
+                       point.lat <= bounds.getNorthEast().lat;
+            });
+
+            // Determine the level of the risk area based on the number of accident points
+            var level;
+            if (accidentPointsInGrid.length <= 5) {
+                level = 1; // Low risk
+            } else if (accidentPointsInGrid.length <= 10) {
+                level = 2; // Medium risk
+            } else {
+                level = 3; // High risk
+            }
+
+            // Create a risk area object
+            var area = {
+                level: level,
+                bounds: bounds,
+                accidentPoints: accidentPointsInGrid
+            };
+
+            // Add the risk area to the list
+            riskAreas.push(area);
+        }
+    }
+
+    return riskAreas;
+}
+
+
+        // Function to display risk area details
+        function displayRiskAreaDetails(area) {
+            var info = "Risk Area Level: " + area.level + "<br>";
+            info += "Accident Points:<br>";
+            area.accidentPoints.forEach(function(point) {
+                info += "Lat: " + point.lat + ", Lng: " + point.lng + ", Reason: " + point.reason + "<br>";
+            });
+            var infoWindow = new BMap.InfoWindow(info, {
+                width : 250,     // Info window width
+                title : "Risk Area Details" // Info window title
+            });
+            map.openInfoWindow(infoWindow, area.bounds.getCenter());
+        }
+
+        // Example of interacting with risk areas (click event)
+        // Add listeners to risk areas for displaying details
+        riskAreas.forEach(function(area) {
+            var bounds = area.bounds;
+            var rectangle = new BMap.Polygon([
+                new BMap.Point(bounds.getSouthWest().lng, bounds.getSouthWest().lat),
+                new BMap.Point(bounds.getNorthWest().lng, bounds.getNorthWest().lat),
+                new BMap.Point(bounds.getNorthEast().lng, bounds.getNorthEast().lat),
+                new BMap.Point(bounds.getSouthEast().lng, bounds.getSouthEast().lat)
+            ], {
+                strokeColor: "red",    // Stroke color
+                strokeWeight: 2,        // Stroke width
+                strokeOpacity: 0.5,     // Stroke opacity
+                fillColor: "red",      // Fill color
+                fillOpacity: 0.1        // Fill opacity
+            });
+            map.addOverlay(rectangle);
+            rectangle.addEventListener("click", function() {
+                displayRiskAreaDetails(area);
+            });
+        });
+            // Add listeners to risk areas for displaying details
+riskAreas.forEach(function(area) {
+    var bounds = area.bounds;
+    var rectangle = new BMap.Polygon([
+        new BMap.Point(bounds.getSouthWest().lng, bounds.getSouthWest().lat),
+        new BMap.Point(bounds.getNorthWest().lng, bounds.getNorthWest().lat),
+        new BMap.Point(bounds.getNorthEast().lng, bounds.getNorthEast().lat),
+        new BMap.Point(bounds.getSouthEast().lng, bounds.getSouthEast().lat)
+    ], {
+        strokeColor: "red",    // Stroke color
+        strokeWeight: 2,        // Stroke width
+        strokeOpacity: 0.5,     // Stroke opacity
+        fillOpacity: 0.3        // Fill opacity
+    });
+
+    // Set fill color based on the risk level
+    if (area.level === 1) {
+        rectangle.setFillColor("green"); // Low risk
+    } else if (area.level === 2) {
+        rectangle.setFillColor("yellow"); // Medium risk
+    } else {
+        rectangle.setFillColor("red"); // High risk
+    }
+
+    map.addOverlay(rectangle);
+
+    rectangle.addEventListener("click", function() {
+        displayRiskAreaDetails(area);
+    });
+});
+
+
+    </script>
+</body>
+</html>
